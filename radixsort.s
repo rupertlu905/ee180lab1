@@ -150,8 +150,74 @@ radsort:
     # temporary storage (mallocs in the C implementation)
     jr      $ra
 
+
+
 find_exp:
-    jr      $ra               
+    # leaf procedure
+    # Saving registers from caller (TODO)
+    lw $s1, 0($a0)             # unsigned largest = array[0];
+
+    move $s0, $zero
+exp_for1:
+    slt $t0, $s0, $a1          # Compare i with n
+    beq $t0, $zero, exp_exit1      # if i >= n, exit the loop
+
+    # Get array[i]
+    sll $t1, $s0, 2             # 4 x array address
+    add $t2, $a0, $t1          # new array address
+    lw $t3, 0($t2)             # load array[i]
+
+    # if (largest <= array[i])
+    sltu $t4, $s1, $t3 
+    beq $t4, $zero, exp_sub_exit1
+    move $s1, $t3
+
+exp_sub_exit1:
+    addi $s0, $s0, 1      # i++
+    j exp_for1            # go back to the top of the loop
+
+exp_exit1:
+
+li $t5, 1                 # exp = 1
+    
+exp_while_loop:
+    sltu $t6, $a3, $s1    # Check if radix <= largest
+    beq $t6, $zero, exp_exit2
+    
+    divu $s1, $s1, $a3    # largest = largest / RADIX
+    mflo $s1              # move quotient to largest
+    
+    mul $t5, $t5, $a3     # exp = exp * RADIX
+    
+    j exp_while_loop      # loop
+    
+exp_exit2:
+    move $v0, $t5
+
+    # restore caller registers (TODO)
+    jr $ra                # return             
 
 arrcpy:
+    # leaf procedure
+    # Saving registers from caller (TODO)
+    move $s0, $zero
+
+arrcpy_for1:
+    slt $t0, $s0, $a2
+    beq $t0, $zero, arrcpy_exit1
+
+    #  dst[i] = src[i]
+    sll $t1, $s0, 2    # 4 x dst address
+    add $t2, $a0, $t1  # new dst address
+    add $t3, $a1, $t1  # new sri address
+
+    lw $t4, 0($t2)     # load in src[i]
+    sw $t4, 0($t3)     # save to dst[i]
+
+    addi $s0, $s0, 1   # i++
+    j arrcpy_for1          # go back to top
+
+arrcpy_exit1:
+    # restore stuff here
     jr      $ra
+
