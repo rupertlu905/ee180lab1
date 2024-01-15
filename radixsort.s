@@ -154,15 +154,17 @@ radsort:
     # temporary storage (mallocs in the C implementation)
 
     # Saving registers (TODO)
-    addi $sp, $sp, -16 #change offset when we have more stuff
+    addi $sp, $sp, -28 #change offset when we have more stuff
+    sw $s0, 24($sp)
+    sw $s1, 20($sp)
+    sw $s2, 16($sp)
     sw $ra, 12($sp)
     sw $a2, 8($sp)
     sw $a1, 4($sp)
     sw $a0, 0($sp)
 
     # Global constants (Radix)
-    move $s1, $zero
-    addi $s1, 10
+    li $s0, 10
 
     # if (n < 2 || exp == 0)
     slti $t0, $a1, 2    # n < 2
@@ -170,40 +172,83 @@ radsort:
     beqz $a2, radsort_exit1
 
     # Malloc lines (2)
-    # Malloc for children array (from GPT, check)
+    # Malloc for children array
     li $a0, 4             # Size of pointer (4 bytes)
-    mul $a0, $a0, $s1     # Total size needed
+    mul $a0, $a0, $s0     # Total size needed (4 * RADIX)
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
-    move $t1, $v0         # Address of children array
+    move $s1, $v0         # Address of children array
 
     # Malloc for children_len array
     li $a0, 4             # Size of unsigned int (4 bytes)
-    mul $a0, $a0, $s1     # Total size needed
+    mul $a0, $a0, $s0     # Total size needed (4 * RADIX)
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
-    move $t2, $v0         # Address of children_len array 
+    move $s2, $v0         # Address of children_len array 
 
-    # Initialize bucket counts to zero for-loop
-    move $s0, $zero
-radsort_init_bc:
-    slt $t3, $s0, $s1
-    beq $t3, $zero, radsort_cont1
+    # For loop to initialize bucket counts to zero
+    move $t0, $zero
+    j radsort_init_loop_cond
 
+radsort_init_loop:
     # children_len[i] = 0;
-    sll $t4, $s0, 2    # 4 x dst address
-    add $t5, $t2, $t4  # new children_len address
-    lw $zero, 0($t5)   # children_len[i] = 0
+    sll $t1, $t0, 2    # 4 x i
+    add $t1, $s2, $t1  # address of children_len[i]
+    sw $zero, 0($t1)   # set children_len[i] = 0
 
     # increment
-    addi $s0, $s0, 1
-    j radsort_init_bc
+    addi $t0, $t0, 1
+
+radsort_init_loop_cond:
+    blt $t0, $s0, radsort_init_loop # if i < RADIX
+
+    # For loop to assign array values to appropriate buckets
+    move $t0, $zero
+    j radsort_assign_buckets_loop_cond
+
+radsort_assign_buckets_loop:
+    # unsigned sort_index = (array[i] / exp) % RADIX;
+    sll $t1, $t0, 2    # 4 x i
+    add $t1, $a0, $t1  # address of array[i]
+    lw $t2, 0($t1)     # array[i]
+    divu $t2, $a2      # array[i] / exp
+    mflo $t2           # quotient
+    divu $t2, $s0      # quotient % RADIX
+    mfhi $t2           # remainder
+
+    # if (children_len[sort_index] != 0), jump to radsort_assign_buckets
+    sll $t3, $t2, 2    # 4 x sort_index
+    add $t4, $s2, $t3  # address of children_len[sort_index]
+    lw $t5, 0($t4)     # children_len[sort_index]
+    bneqz $t5, radsort_assign_buckets
+
+    # malloc for children[sort_index]
+    li $a0, 4             # Size of pointer (4 bytes)
+    mul $a0, $a0, $a1     # Total size needed (4 * n)
+    li $v0, 9             # Syscall for sbrk
+    syscall               # Allocate memory
+    add $t6, $s1, $t3     # address of children[sort_index]
+    sw $v0, 0($t6)        # children[sort_index] = malloc(4 * n)
+
+
+radsort_assign_buckets:
+    # children[sort_index][children_len[sort_index]] = array[i]; (TODO)
+
+    # increment children_len[sort_index]
+    addi $t5, $t5, 1
+    sw $t5, 0($t4)
+
+    # increment i
+    addi $t0, $t0, 1
+
+radsort_assign_buckets_loop_cond:
+    blt $t0, $a1, radsort_assign_buckets_loop # if i < n
 
 radsort_cont1:
-    #Keep going (line 69 in .c)
+    #Keep going (line 77 in .c)
 
 
-    # Case when n < 2 || exp == 0:
+# Case when n < 2 || exp == 0:
 radsort_exit1:
     # restore registers
     lw $a0, 0($sp)
@@ -218,7 +263,6 @@ L1:
 
 
 
-# Fix RADIX to be global constant, not function parameter
 find_exp:
     # leaf procedure
     lw $t0, 0($a0)             # unsigned largest = array[0];
