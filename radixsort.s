@@ -153,15 +153,14 @@ radsort:
     # You will have to use a syscall to allocate
     # temporary storage (mallocs in the C implementation)
 
-    # Saving registers (TODO)
-    addi $sp, $sp, -28 #change offset when we have more stuff
-    sw $s0, 24($sp)
-    sw $s1, 20($sp)
-    sw $s2, 16($sp)
-    sw $ra, 12($sp)
-    sw $a2, 8($sp)
-    sw $a1, 4($sp)
-    sw $a0, 0($sp)
+    # Saving registers as the callee
+    addi $sp, $sp, -24
+    sw $ra, 20($sp)
+    sw $s4, 16($sp)
+    sw $s3, 12($sp)
+    sw $s2, 8($sp)
+    sw $s1, 4($sp)
+    sw $s0, 0($sp)
 
     # Global constants (Radix)
     li $s0, 10
@@ -187,7 +186,7 @@ radsort:
     move $s2, $v0         # Address of children_len array 
 
     # For loop to initialize bucket counts to zero
-    move $t0, $zero
+    move $t0, $zero       # i = 0;
     j radsort_init_loop_cond
 
 radsort_init_loop:
@@ -203,7 +202,7 @@ radsort_init_loop_cond:
     blt $t0, $s0, radsort_init_loop # if i < RADIX
 
     # For loop to assign array values to appropriate buckets
-    move $t0, $zero
+    move $t0, $zero     # i = 0;
     j radsort_assign_buckets_loop_cond
 
 radsort_assign_buckets_loop:
@@ -247,8 +246,68 @@ radsort_assign_buckets:
 radsort_assign_buckets_loop_cond:
     blt $t0, $a1, radsort_assign_buckets_loop # if i < n
 
-radsort_cont1:
-    #Keep going (line 77 in .c)
+    # For loop to call radix sort on each bucket and copy back to array
+    move $s3, $zero    # i = 0;
+    move $s4, $zero    # idx = 0;
+    j radsort_recursive_loop_cond
+
+radsort_recursive_loop:
+    # save my previous function parameters on stack
+    addi $sp, $sp, -12
+    sw $a2, 8($sp)
+    sw $a1, 4($sp)
+    sw $a0, 0($sp)
+
+    # if (children_len[i] != 0)
+    sll $t0, $s3, 2    # 4 x i
+    add $t0, $s2, $t0  # address of children_len[i]
+    lw $a1, 0($t0)     # children_len[i]
+    beqz $a1, radsort_copy_array # if children_len[i] == 0
+
+    # recursive call to radsort (TODO)
+    sll $t0, $s3, 2    # 4 x i
+    add $t0, $s1, $t0  # address of children[i]
+    lw $a0, 0($t0)     # children[i]
+    divu $a2, $s0      # exp / RADIX
+    mflo $a2           # quotient
+    jal radsort
+
+    lw $a0, 0($sp)     # restore my previous function parameters
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    addi $sp, $sp, 12
+
+radsort_copy_array:
+    # save my previous function parameters on stack
+    addi $sp, $sp, -12
+    sw $a2, 8($sp)
+    sw $a1, 4($sp)
+    sw $a0, 0($sp)
+
+    # copy array
+    add $a0, $a0, $s4   # array + idx
+    sll $t0, $s3, 2     # 4 x i
+    add $t1, $s1, $t0   # address of children[i]
+    lw $a1, 0($t1)      # children[i]
+    add $t2, $s2, $t0   # address of children_len[i]
+    lw $a2, 0($t2)      # children_len[i]
+    jal arrcpy
+
+    # idx += children_len[i];
+    add $s4, $s4, $a2   # idx += children_len[i]
+
+    lw $a0, 0($sp)      # restore my previous function parameters
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    addi $sp, $sp, 12
+
+    # increment i
+    addi $s3, $s3, 1
+
+radsort_recursive_loop_cond:
+    blt $s3, $s0, radsort_recursive_loop # if i < RADIX
+
+    #Keep going (line 88 in .c) TODO
 
 
 # Case when n < 2 || exp == 0:
