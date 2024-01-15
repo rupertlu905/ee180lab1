@@ -219,8 +219,8 @@ find_exp:
     # leaf procedure
     # Saving registers from caller (TODO)
     lw $s1, 0($a0)             # unsigned largest = array[0];
+    move $s0, $zero            # int i = 0;
 
-    move $s0, $zero
 exp_for1:
     slt $t0, $s0, $a1          # Compare i with n
     beq $t0, $zero, exp_exit1      # if i >= n, exit the loop
@@ -244,13 +244,13 @@ exp_exit1:
 li $t5, 1                 # exp = 1
     
 exp_while_loop:
-    sltu $t6, $a3, $s1    # Check if radix <= largest
-    beq $t6, $zero, exp_exit2
+    li $s2, 10            # RADIX = 10
+    blt $s1, $s2, exp_exit2    # Check if largest < radix
     
-    divu $s1, $s1, $a3    # largest = largest / RADIX
+    divu $s1, $s2    # largest = largest / RADIX
     mflo $s1              # move quotient to largest
     
-    mul $t5, $t5, $a3     # exp = exp * RADIX
+    mul $t5, $t5, $s2     # exp = exp * RADIX
     
     j exp_while_loop      # loop
     
