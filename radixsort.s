@@ -218,45 +218,40 @@ L1:
 find_exp:
     # leaf procedure
     # Saving registers from caller (TODO)
-    lw $s1, 0($a0)             # unsigned largest = array[0];
-    move $s0, $zero            # int i = 0;
+    lw $t0, 0($a0)             # unsigned largest = array[0];
+    move $t1, $zero            # int i = 0;
 
 exp_for1:
-    slt $t0, $s0, $a1          # Compare i with n
-    beq $t0, $zero, exp_exit1      # if i >= n, exit the loop
+    bge $t1, $a1, exp_exit1      # exit loop if i >= n
 
     # Get array[i]
-    sll $t1, $s0, 2             # 4 x array address
-    add $t2, $a0, $t1          # new array address
+    sll $t2, $t1, 2             # t2 = 4 * i
+    add $t2, $a0, $t2          # t2 = array + 4 * i
     lw $t3, 0($t2)             # load array[i]
 
-    # if (largest <= array[i])
-    sltu $t4, $s1, $t3 
-    beq $t4, $zero, exp_sub_exit1
-    move $s1, $t3
+    bgt $t0, $t3, exp_sub_exit1 # if (largest > array[i])
+    move $t0, $t3
 
 exp_sub_exit1:
-    addi $s0, $s0, 1      # i++
+    addi $t1, $t1, 1      # i++
     j exp_for1            # go back to the top of the loop
 
 exp_exit1:
 
-li $t5, 1                 # exp = 1
+li $v0, 1                 # exp = 1
     
 exp_while_loop:
-    li $s2, 10            # RADIX = 10
-    blt $s1, $s2, exp_exit2    # Check if largest < radix
+    li $t1, 10            # RADIX = 10
+    blt $t0, $t1, exp_exit2    # Check if largest < RADIX
     
-    divu $s1, $s2    # largest = largest / RADIX
-    mflo $s1              # move quotient to largest
+    divu $t0, $t1    # largest = largest / RADIX
+    mflo $t0              # move quotient to largest
     
-    mul $t5, $t5, $s2     # exp = exp * RADIX
+    mul $v0, $v0, $t1     # exp = exp * RADIX
     
     j exp_while_loop      # loop
     
 exp_exit2:
-    move $v0, $t5
-
     # restore caller registers (TODO)
     jr $ra                # return             
 
@@ -269,9 +264,9 @@ arrcpy_for1:
     bge $t0, $a2, arrcpy_exit1 # exit loop if i >= n
 
     #  dst[i] = src[i]
-    sll $t1, $t0, 2    # t1 = 4 x i
-    add $t2, $a0, $t1  # t2 = dst[i]
-    add $t3, $a1, $t1  # t3 = src[i]
+    sll $t1, $t0, 2    # t1 = 4 * i
+    add $t2, $a0, $t1  # t2 = dst + 4 * i
+    add $t3, $a1, $t1  # t3 = src + 4 * i
 
     lw $t4, 0($t3)     # load in src[i]
     sw $t4, 0($t2)     # save to dst[i]
