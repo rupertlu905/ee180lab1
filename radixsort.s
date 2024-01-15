@@ -263,21 +263,20 @@ exp_exit2:
 arrcpy:
     # leaf procedure
     # Saving registers from caller (TODO)
-    move $s0, $zero
+    move $t0, $zero # i = 0;
 
 arrcpy_for1:
-    slt $t0, $s0, $a2
-    beq $t0, $zero, arrcpy_exit1
+    bge $t0, $a2, arrcpy_exit1 # exit loop if i >= n
 
     #  dst[i] = src[i]
-    sll $t1, $s0, 2    # 4 x dst address
-    add $t2, $a0, $t1  # new dst address
-    add $t3, $a1, $t1  # new src address
+    sll $t1, $t0, 2    # t1 = 4 x i
+    add $t2, $a0, $t1  # t2 = dst[i]
+    add $t3, $a1, $t1  # t3 = src[i]
 
     lw $t4, 0($t3)     # load in src[i]
     sw $t4, 0($t2)     # save to dst[i]
 
-    addi $s0, $s0, 1   # i++
+    addi $t0, $t0, 1   # i++
     j arrcpy_for1      # go back to top
 
 arrcpy_exit1:
