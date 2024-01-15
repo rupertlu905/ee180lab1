@@ -148,10 +148,55 @@ print_loop_cond:
 radsort: 
     # You will have to use a syscall to allocate
     # temporary storage (mallocs in the C implementation)
+
+    # Saving registers (TODO)
+    addi $sp, $sp, -16 #change offset when we have more stuff
+    sw $ra, 12($sp)
+    sw $a2, 8($sp)
+    sw $a1, 4($sp)
+    sw $a0, 0($sp)
+
+    # Global constants (Radix)
+    move $t8, $zero
+    addi $t8, 10
+
+    # if (n < 2 || exp == 0)
+    slti $t0, $a1, 2    # n < 2
+    bne $t0, $zero, radsort_exit1  # go to exit2 when n >= 2
+    beqz $a2, radsort_exit1
+
+    # Malloc lines (2)
+    # Malloc for children array (from GPT, check)
+    li $a0, 4             # Size of pointer (4 bytes)
+    mul $a0, $a0, $t8     # Total size needed
+    li $v0, 9             # Syscall for sbrk
+    syscall               # Allocate memory
+    move $t1, $v0         # Address of children array
+
+    # Malloc for children_len array
+    li $a0, 4             # Size of unsigned int (4 bytes)
+    mul $a0, $a0, $t8     # Total size needed
+    li $v0, 9             # Syscall for sbrk
+    syscall               # Allocate memory
+    move $t2, $v0         # Address of children_len array 
+
+
+    # Case when n < 2 || exp == 0:
+radsort_exit1:
+    # restore registers
+    lw $a0, 0($sp)
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    lw $ra, 12($sp)
+    addi $sp, $sp, 16
+    jr $ra
+
+L1:
     jr      $ra
 
 
 
+# Fix RADIX to be global constant, not function parameter
 find_exp:
     # leaf procedure
     # Saving registers from caller (TODO)
@@ -209,13 +254,13 @@ arrcpy_for1:
     #  dst[i] = src[i]
     sll $t1, $s0, 2    # 4 x dst address
     add $t2, $a0, $t1  # new dst address
-    add $t3, $a1, $t1  # new sri address
+    add $t3, $a1, $t1  # new src address
 
-    lw $t4, 0($t2)     # load in src[i]
-    sw $t4, 0($t3)     # save to dst[i]
+    lw $t4, 0($t3)     # load in src[i]
+    sw $t4, 0($t2)     # save to dst[i]
 
     addi $s0, $s0, 1   # i++
-    j arrcpy_for1          # go back to top
+    j arrcpy_for1      # go back to top
 
 arrcpy_exit1:
     # restore stuff here
