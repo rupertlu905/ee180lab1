@@ -98,17 +98,23 @@ read_loop_cond:
     bne     $t0, $t1, read_loop 
 
     #---- Call find_exp, then radixsort ------------------------
-    # ADD YOUR CODE HERE! 
+    ble $s1, $zero, print_array
 
     # Pass the two arguments in $a0 and $a1 before calling
     # find_exp. Again, make sure to use proper calling 
     # conventions!
-
+    move $a0, $s0
+    move $a1, $s1
+    jal find_exp
 
     # Pass the three arguments in $a0, $a1, and $a2 before
     # calling radsort (radixsort)
+    move $a0, $s0
+    move $a1, $s1
+    move $a2, $v0
+    jal radsort
 
-
+print_array:
     #---- Print sorted array -----------------------------------
     li      $v0, 4              # print_string
     la      $a0, ANS            # "The sorted list is:\n"
@@ -142,8 +148,6 @@ print_loop_cond:
     addiu   $sp, $sp, 32
     jr      $ra
 
-
-# ADD YOUR CODE HERE! 
 
 radsort: 
     # You will have to use a syscall to allocate
@@ -217,7 +221,6 @@ L1:
 # Fix RADIX to be global constant, not function parameter
 find_exp:
     # leaf procedure
-    # Saving registers from caller (TODO)
     lw $t0, 0($a0)             # unsigned largest = array[0];
     move $t1, $zero            # int i = 0;
 
@@ -237,8 +240,7 @@ exp_sub_exit1:
     j exp_for1            # go back to the top of the loop
 
 exp_exit1:
-
-li $v0, 1                 # exp = 1
+    li $v0, 1                 # exp = 1
     
 exp_while_loop:
     li $t1, 10            # RADIX = 10
@@ -252,12 +254,10 @@ exp_while_loop:
     j exp_while_loop      # loop
     
 exp_exit2:
-    # restore caller registers (TODO)
     jr $ra                # return             
 
 arrcpy:
     # leaf procedure
-    # Saving registers from caller (TODO)
     move $t0, $zero # i = 0;
 
 arrcpy_for1:
@@ -275,6 +275,4 @@ arrcpy_for1:
     j arrcpy_for1      # go back to top
 
 arrcpy_exit1:
-    # restore stuff here
     jr      $ra
-
