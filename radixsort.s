@@ -157,8 +157,8 @@ radsort:
     sw $a0, 0($sp)
 
     # Global constants (Radix)
-    move $t8, $zero
-    addi $t8, 10
+    move $s1, $zero
+    addi $s1, 10
 
     # if (n < 2 || exp == 0)
     slti $t0, $a1, 2    # n < 2
@@ -168,17 +168,35 @@ radsort:
     # Malloc lines (2)
     # Malloc for children array (from GPT, check)
     li $a0, 4             # Size of pointer (4 bytes)
-    mul $a0, $a0, $t8     # Total size needed
+    mul $a0, $a0, $s1     # Total size needed
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
     move $t1, $v0         # Address of children array
 
     # Malloc for children_len array
     li $a0, 4             # Size of unsigned int (4 bytes)
-    mul $a0, $a0, $t8     # Total size needed
+    mul $a0, $a0, $s1     # Total size needed
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
     move $t2, $v0         # Address of children_len array 
+
+    # Initialize bucket counts to zero for-loop
+    move $s0, $zero
+radsort_init_bc:
+    slt $t3, $s0, $s1
+    beq $t3, $zero, radsort_cont1
+
+    # children_len[i] = 0;
+    sll $t4, $s0, 2    # 4 x dst address
+    add $t5, $t2, $t4  # new children_len address
+    lw $zero, 0($t5)   # children_len[i] = 0
+
+    # increment
+    addi $s0, $s0, 1
+    j radsort_init_bc
+
+radsort_cont1:
+    #Keep going (line 69 in .c)
 
 
     # Case when n < 2 || exp == 0:
