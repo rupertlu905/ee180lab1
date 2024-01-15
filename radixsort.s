@@ -230,9 +230,12 @@ radsort_assign_buckets_loop:
     add $t6, $s1, $t3     # address of children[sort_index]
     sw $v0, 0($t6)        # children[sort_index] = malloc(4 * n)
 
-
 radsort_assign_buckets:
-    # children[sort_index][children_len[sort_index]] = array[i]; (TODO)
+    # children[sort_index][children_len[sort_index]] = array[i];
+    sll $t7, $t5, 2    # 4 x children_len[sort_index]
+    lw $t8, 0($t6)     # children[sort_index]
+    add $t8, $t8, $t7  # address of children[sort_index][children_len[sort_index]]
+    sw $t2, 0($t8)     # children[sort_index][children_len[sort_index]] = array[i]
 
     # increment children_len[sort_index]
     addi $t5, $t5, 1
