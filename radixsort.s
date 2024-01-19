@@ -103,16 +103,39 @@ read_loop_cond:
     # Pass the two arguments in $a0 and $a1 before calling
     # find_exp. Again, make sure to use proper calling 
     # conventions!
+
+    addiu $sp, $sp, -24
+    sw $ra, 0($sp)
+    sw $a1, 4($sp)
+    sw $a0, 8($sp)
+
     move $a0, $s0
     move $a1, $s1
+
     jal find_exp
+
+    lw $ra, 0($sp)
+    lw $a1, 4($sp)
+    lw $a0, 8($sp)
+    addiu $sp, $sp, 24
+
+    addiu $sp, $sp, -24
+    sw $ra, 0($sp)
+    sw $a1, 4($sp)
+    sw $a0, 8($sp)
 
     # Pass the three arguments in $a0, $a1, and $a2 before
     # calling radsort (radixsort)
     move $a0, $s0
     move $a1, $s1
     move $a2, $v0
+
     jal radsort
+
+    lw $ra, 0($sp)
+    lw $a1, 4($sp)
+    lw $a0, 8($sp)
+    addiu $sp, $sp, 24
 
 print_array:
     #---- Print sorted array -----------------------------------
@@ -154,7 +177,7 @@ radsort:
     # temporary storage (mallocs in the C implementation)
 
     # Saving registers as the callee
-    addi $sp, $sp, -36
+    addiu $sp, $sp, -40
     sw $a2, 32($sp)
     sw $a1, 28($sp)
     sw $a0, 24($sp)
@@ -180,7 +203,6 @@ radsort:
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
     move $s1, $v0         # Address of children array
-
     # Malloc for children_len array
     li $a0, 4             # Size of unsigned int (4 bytes)
     mul $a0, $a0, $s0     # Total size needed (4 * RADIX)
@@ -224,7 +246,7 @@ radsort_assign_buckets_loop:
     sll $t3, $t2, 2    # 4 x sort_index
     addu $t4, $s2, $t3  # address of children_len[sort_index]
     lw $t5, 0($t4)     # children_len[sort_index]
-    bneqz $t5, radsort_assign_buckets
+    bne $t5, $zero, radsort_assign_buckets
 
     # malloc for children[sort_index]
     li $a0, 4             # Size of pointer (4 bytes)
@@ -259,7 +281,9 @@ radsort_assign_buckets_loop_cond:
 
 radsort_recursive_loop:
     # save my previous function parameters on stack
-    addi $sp, $sp, -24
+    addiu $sp, $sp, -24
+
+    sw $ra, 12($sp)
     sw $a2, 8($sp)
     sw $a1, 4($sp)
     sw $a0, 0($sp)
@@ -278,34 +302,39 @@ radsort_recursive_loop:
     mflo $a2           # quotient
     jal radsort
 
+    lw $ra, 12($sp)
     lw $a0, 0($sp)     # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addi $sp, $sp, 24
+    addiu $sp, $sp, 24
 
 radsort_copy_array:
     # save my previous function parameters on stack
-    addi $sp, $sp, -24
+    addiu $sp, $sp, -24
+    sw $ra, 12($sp)
     sw $a2, 8($sp)
     sw $a1, 4($sp)
     sw $a0, 0($sp)
 
     # copy array
-    addu $a0, $a0, $s4   # array + idx
+    sll $t9, $s4, 2 
+    addu $a0, $a0, $t9   # array + idx
     sll $t0, $s3, 2     # 4 x i
     addu $t1, $s1, $t0   # address of children[i]
     lw $a1, 0($t1)      # children[i]
     addu $t2, $s2, $t0   # address of children_len[i]
     lw $a2, 0($t2)      # children_len[i]
+
     jal arrcpy
 
-    # idx += children_len[i];
-    addu $s4, $s4, $a2   # idx += children_len[i]
-
+    lw $ra, 12($sp)
     lw $a0, 0($sp)      # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addi $sp, $sp, 24
+    addiu $sp, $sp, 24
+
+    # idx += children_len[i];
+    addu $s4, $s4, $a2   # idx += children_len[i]
 
     # increment i
     addiu $s3, $s3, 1
@@ -327,8 +356,8 @@ radsort_exit1:
     lw $s2, 8($sp)
     lw $s1, 4($sp)
     lw $s0, 0($sp)
-    addi $sp, $sp, 36
-    jr $ra
+    addi $sp, $sp, 40
+    jr  $ra
 
 find_exp:
     # leaf procedure
@@ -348,7 +377,7 @@ exp_sub_exit1:
     addiu $t1, $t1, 1            # i++
 
 exp_for1_test:
-    slt $t5, $t1, $a2            # i < n?
+    slt $t5, $t1, $a1            # i < n?
     bne $t5, $zero, exp_for1 
 
 exp_exit1:
