@@ -98,17 +98,23 @@ read_loop_cond:
     bne     $t0, $t1, read_loop 
 
     #---- Call find_exp, then radixsort ------------------------
-    # ADD YOUR CODE HERE! 
+    ble $s1, $zero, print_array
 
     # Pass the two arguments in $a0 and $a1 before calling
     # find_exp. Again, make sure to use proper calling 
     # conventions!
-
+    move $a0, $s0
+    move $a1, $s1
+    jal find_exp
 
     # Pass the three arguments in $a0, $a1, and $a2 before
     # calling radsort (radixsort)
+    move $a0, $s0
+    move $a1, $s1
+    move $a2, $v0
+    jal radsort
 
-
+print_array:
     #---- Print sorted array -----------------------------------
     li      $v0, 4              # print_string
     la      $a0, ANS            # "The sorted list is:\n"
@@ -143,22 +149,24 @@ print_loop_cond:
     jr      $ra
 
 
-# ADD YOUR CODE HERE! 
-
 radsort: 
     # You will have to use a syscall to allocate
     # temporary storage (mallocs in the C implementation)
 
-    # Saving registers (TODO)
-    addi $sp, $sp, -16 #change offset when we have more stuff
-    sw $ra, 12($sp)
-    sw $a2, 8($sp)
-    sw $a1, 4($sp)
-    sw $a0, 0($sp)
+    # Saving registers as the callee
+    addi $sp, $sp, -32
+    sw $a2, 20($sp)
+    sw $a1, 28($sp)
+    sw $a0, 24($sp)
+    sw $ra, 20($sp)
+    sw $s4, 16($sp)
+    sw $s3, 12($sp)
+    sw $s2, 8($sp)
+    sw $s1, 4($sp)
+    sw $s0, 0($sp)
 
     # Global constants (Radix)
-    move $s1, $zero
-    addi $s1, 10
+    li $s0, 10
 
     # if (n < 2 || exp == 0)
     slti $t0, $a1, 2    # n < 2
@@ -166,47 +174,153 @@ radsort:
     beqz $a2, radsort_exit1
 
     # Malloc lines (2)
-    # Malloc for children array (from GPT, check)
+    # Malloc for children array
     li $a0, 4             # Size of pointer (4 bytes)
-    mul $a0, $a0, $s1     # Total size needed
+    mul $a0, $a0, $s0     # Total size needed (4 * RADIX)
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
-    move $t1, $v0         # Address of children array
+    move $s1, $v0         # Address of children array
 
     # Malloc for children_len array
     li $a0, 4             # Size of unsigned int (4 bytes)
-    mul $a0, $a0, $s1     # Total size needed
+    mul $a0, $a0, $s0     # Total size needed (4 * RADIX)
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
-    move $t2, $v0         # Address of children_len array 
+    move $s2, $v0         # Address of children_len array 
 
-    # Initialize bucket counts to zero for-loop
-    move $s0, $zero
-radsort_init_bc:
-    slt $t3, $s0, $s1
-    beq $t3, $zero, radsort_cont1
+    # For loop to initialize bucket counts to zero
+    move $t0, $zero       # i = 0;
+    j radsort_init_loop_cond
 
+radsort_init_loop:
     # children_len[i] = 0;
-    sll $t4, $s0, 2    # 4 x dst address
-    add $t5, $t2, $t4  # new children_len address
-    lw $zero, 0($t5)   # children_len[i] = 0
+    sll $t1, $t0, 2    # 4 x i
+    addu $t1, $s2, $t1  # address of children_len[i]
+    sw $zero, 0($t1)   # set children_len[i] = 0
 
     # increment
-    addi $s0, $s0, 1
-    j radsort_init_bc
+    addiu $t0, $t0, 1
 
-radsort_cont1:
-    #Keep going (line 69 in .c)
+radsort_init_loop_cond:
+    blt $t0, $s0, radsort_init_loop # if i < RADIX
+
+    # For loop to assign array values to appropriate buckets
+    move $t0, $zero     # i = 0;
+    j radsort_assign_buckets_loop_cond
+
+radsort_assign_buckets_loop:
+    # unsigned sort_index = (array[i] / exp) % RADIX;
+    sll $t1, $t0, 2    # 4 x i
+    addu $t1, $a0, $t1  # address of array[i]
+    lw $t2, 0($t1)     # array[i]
+    divu $t2, $a2      # array[i] / exp
+    mflo $t2           # quotient
+    divu $t2, $s0      # quotient % RADIX
+    mfhi $t2           # remainder
+
+    # if (children_len[sort_index] != 0), jump to radsort_assign_buckets
+    sll $t3, $t2, 2    # 4 x sort_index
+    addu $t4, $s2, $t3  # address of children_len[sort_index]
+    lw $t5, 0($t4)     # children_len[sort_index]
+    bneqz $t5, radsort_assign_buckets
+
+    # malloc for children[sort_index]
+    li $a0, 4             # Size of pointer (4 bytes)
+    mul $a0, $a0, $a1     # Total size needed (4 * n)
+    li $v0, 9             # Syscall for sbrk
+    syscall               # Allocate memory
+    addu $t6, $s1, $t3     # address of children[sort_index]
+    sw $v0, 0($t6)        # children[sort_index] = malloc(4 * n)
+
+radsort_assign_buckets:
+    # children[sort_index][children_len[sort_index]] = array[i];
+    sll $t7, $t5, 2    # 4 x children_len[sort_index]
+    lw $t8, 0($t6)     # children[sort_index]
+    addu $t8, $t8, $t7  # address of children[sort_index][children_len[sort_index]]
+    sw $t2, 0($t8)     # children[sort_index][children_len[sort_index]] = array[i]
+
+    # increment children_len[sort_index]
+    addiu $t5, $t5, 1
+    sw $t5, 0($t4)
+
+    # increment i
+    addiu $t0, $t0, 1
+
+radsort_assign_buckets_loop_cond:
+    blt $t0, $a1, radsort_assign_buckets_loop # if i < n
+
+    # For loop to call radix sort on each bucket and copy back to array
+    move $s3, $zero    # i = 0;
+    move $s4, $zero    # idx = 0;
+    j radsort_recursive_loop_cond
+
+radsort_recursive_loop:
+    # save my previous function parameters on stack
+    addi $sp, $sp, -24
+    sw $a2, 8($sp)
+    sw $a1, 4($sp)
+    sw $a0, 0($sp)
+
+    # if (children_len[i] != 0)
+    sll $t0, $s3, 2    # 4 x i
+    addu $t0, $s2, $t0  # address of children_len[i]
+    lw $a1, 0($t0)     # children_len[i]
+    beqz $a1, radsort_copy_array # if children_len[i] == 0
+
+    # recursive call to radsort (TODO)
+    sll $t0, $s3, 2    # 4 x i
+    addu $t0, $s1, $t0  # address of children[i]
+    lw $a0, 0($t0)     # children[i]
+    divu $a2, $s0      # exp / RADIX
+    mflo $a2           # quotient
+    jal radsort
+
+    lw $a0, 0($sp)     # restore my previous function parameters
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    addi $sp, $sp, 24
+
+radsort_copy_array:
+    # save my previous function parameters on stack
+    addi $sp, $sp, -24
+    sw $a2, 8($sp)
+    sw $a1, 4($sp)
+    sw $a0, 0($sp)
+
+    # copy array
+    addu $a0, $a0, $s4   # array + idx
+    sll $t0, $s3, 2     # 4 x i
+    addu $t1, $s1, $t0   # address of children[i]
+    lw $a1, 0($t1)      # children[i]
+    addu $t2, $s2, $t0   # address of children_len[i]
+    lw $a2, 0($t2)      # children_len[i]
+    jal arrcpy
+
+    # idx += children_len[i];
+    addu $s4, $s4, $a2   # idx += children_len[i]
+
+    lw $a0, 0($sp)      # restore my previous function parameters
+    lw $a1, 4($sp)
+    lw $a2, 8($sp)
+    addi $sp, $sp, 24
+
+    # increment i
+    addiu $s3, $s3, 1
+
+radsort_recursive_loop_cond:
+    blt $s3, $s0, radsort_recursive_loop # if i < RADIX
+
+    #Keep going (line 88 in .c) TODO
 
 
-    # Case when n < 2 || exp == 0:
+# Case when n < 2 || exp == 0:
 radsort_exit1:
     # restore registers
     lw $a0, 0($sp)
     lw $a1, 4($sp)
     lw $a2, 8($sp)
     lw $ra, 12($sp)
-    addi $sp, $sp, 16
+    addi $sp, $sp, 32
     jr $ra
 
 L1:
@@ -214,73 +328,62 @@ L1:
 
 
 
-# Fix RADIX to be global constant, not function parameter
 find_exp:
     # leaf procedure
-    # Saving registers from caller (TODO)
-    lw $s1, 0($a0)             # unsigned largest = array[0];
+    lw $t0, 0($a0)             # unsigned largest = array[0];
+    move $t1, $zero            # int i = 0;
 
-    move $s0, $zero
+    j exp_for1_test
+
 exp_for1:
-    slt $t0, $s0, $a1          # Compare i with n
-    beq $t0, $zero, exp_exit1      # if i >= n, exit the loop
-
-    # Get array[i]
-    sll $t1, $s0, 2             # 4 x array address
-    add $t2, $a0, $t1          # new array address
-    lw $t3, 0($t2)             # load array[i]
-
-    # if (largest <= array[i])
-    sltu $t4, $s1, $t3 
-    beq $t4, $zero, exp_sub_exit1
-    move $s1, $t3
+    sll $t2, $t1, 2              # t2 = 4 * i
+    addu $t2, $a0, $t2           # t2 = array + 4 * i
+    lw $t3, 0($t2)               # load array[i]
+    bgt $t0, $t3, exp_sub_exit1  # if (largest > array[i])
+    move $t0, $t3
 
 exp_sub_exit1:
-    addi $s0, $s0, 1      # i++
-    j exp_for1            # go back to the top of the loop
+    addiu $t1, $t1, 1            # i++
+
+exp_for1_test:
+    slt $t5, $t1, $a2            # i < n?
+    bne $t5, $zero, exp_for1 
 
 exp_exit1:
+    li $v0, 1                    # exp = 1
+    j exp_whi_test
+    li $t1, 10                   # RADIX = 10
 
-li $t5, 1                 # exp = 1
-    
-exp_while_loop:
-    sltu $t6, $a3, $s1    # Check if radix <= largest
-    beq $t6, $zero, exp_exit2
-    
-    divu $s1, $s1, $a3    # largest = largest / RADIX
-    mflo $s1              # move quotient to largest
-    
-    mul $t5, $t5, $a3     # exp = exp * RADIX
-    
-    j exp_while_loop      # loop
-    
+exp_while_loop:    
+    divu $t0, $t1         # largest = largest / RADIX
+    mflo $t0              # move quotient to largest
+    mul $v0, $v0, $t1     # exp = exp * RADIX
+
+exp_whi_test:
+    slt $t5, $t0, $t1
+    beq $t5, $zero, exp_while_loop
+        
 exp_exit2:
-    move $v0, $t5
-
-    # restore caller registers (TODO)
     jr $ra                # return             
 
 arrcpy:
     # leaf procedure
-    # Saving registers from caller (TODO)
-    move $s0, $zero
+    move $t0, $zero # i = 0;
+    j arrcpy_fl_test1
 
-arrcpy_for1:
-    slt $t0, $s0, $a2
-    beq $t0, $zero, arrcpy_exit1
-
-    #  dst[i] = src[i]
-    sll $t1, $s0, 2    # 4 x dst address
-    add $t2, $a0, $t1  # new dst address
-    add $t3, $a1, $t1  # new src address
+arrcpy_fl_loop:
+    sll $t1, $t0, 2    # t1 = 4 * i
+    addu $t2, $a0, $t1  # t2 = dst + 4 * i
+    addu $t3, $a1, $t1  # t3 = src + 4 * i
 
     lw $t4, 0($t3)     # load in src[i]
     sw $t4, 0($t2)     # save to dst[i]
 
-    addi $s0, $s0, 1   # i++
-    j arrcpy_for1      # go back to top
+    addiu $t0, $t0, 1   # i++    
 
-arrcpy_exit1:
-    # restore stuff here
+arrcpy_fl_test1:
+    slt $t5, $t0, $a2
+    bne $t5, $zero, arrcpy_fl_loop 
+
+arrcpy_exit:
     jr      $ra
-
