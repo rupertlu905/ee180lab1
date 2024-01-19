@@ -79,7 +79,6 @@ main:
     syscall
     move    $s0, $v0            # the addr of allocated memory
 
-
     #---- Prompt user for array elements ----------------------
     addu    $t1, $s0, $s2       # address of end of the array
     move    $t0, $s0            # address of the current element
@@ -104,10 +103,13 @@ read_loop_cond:
     # find_exp. Again, make sure to use proper calling 
     # conventions!
 
-    addiu $sp, $sp, -24
+    addi $sp, $sp, -24
+
     sw $ra, 0($sp)
     sw $a1, 4($sp)
     sw $a0, 8($sp)
+    sw $t0, 12($sp)
+    sw $t1, 16($sp)
 
     move $a0, $s0
     move $a1, $s1
@@ -117,12 +119,16 @@ read_loop_cond:
     lw $ra, 0($sp)
     lw $a1, 4($sp)
     lw $a0, 8($sp)
-    addiu $sp, $sp, 24
+    lw $t0, 12($sp)
+    lw $t1, 16($sp)
+    addi $sp, $sp, 24
 
     addiu $sp, $sp, -24
     sw $ra, 0($sp)
     sw $a1, 4($sp)
     sw $a0, 8($sp)
+    sw $t0, 12($sp)
+    sw $t1, 16($sp)
 
     # Pass the three arguments in $a0, $a1, and $a2 before
     # calling radsort (radixsort)
@@ -135,6 +141,8 @@ read_loop_cond:
     lw $ra, 0($sp)
     lw $a1, 4($sp)
     lw $a0, 8($sp)
+    lw $t0, 12($sp)
+    lw $t1, 16($sp)
     addiu $sp, $sp, 24
 
 print_array:
@@ -148,6 +156,7 @@ print_array:
     #---- Initiazing variables ---------------------------------
     move    $t0, $s0            # address of start of the array
     addu    $t1, $s0, $s2       # address of end of the array
+
     j       print_loop_cond
 
 print_loop:
@@ -166,6 +175,7 @@ print_loop_cond:
     la      $a0, EOL            # "\n"
     syscall          
 
+exit:
     #---- Exit -------------------------------------------------
     lw      $ra, 28($sp)
     addiu   $sp, $sp, 32
@@ -177,11 +187,7 @@ radsort:
     # temporary storage (mallocs in the C implementation)
 
     # Saving registers as the callee
-    addiu $sp, $sp, -40
-    sw $a2, 32($sp)
-    sw $a1, 28($sp)
-    sw $a0, 24($sp)
-    sw $ra, 20($sp)
+    addi $sp, $sp, -24
     sw $s4, 16($sp)
     sw $s3, 12($sp)
     sw $s2, 8($sp)
@@ -281,8 +287,17 @@ radsort_assign_buckets_loop_cond:
 
 radsort_recursive_loop:
     # save my previous function parameters on stack
-    addiu $sp, $sp, -24
-
+    addiu $sp, $sp, -64
+    sw $t0, 52($sp)
+    sw $t1, 48($sp)
+    sw $t2, 44($sp)
+    sw $t3, 40($sp)
+    sw $t4, 36($sp)
+    sw $t5, 32($sp)
+    sw $t6, 28($sp)
+    sw $t7, 24($sp)
+    sw $t8, 20($sp)
+    sw $t9, 16($sp)
     sw $ra, 12($sp)
     sw $a2, 8($sp)
     sw $a1, 4($sp)
@@ -300,17 +315,39 @@ radsort_recursive_loop:
     lw $a0, 0($t0)     # children[i]
     divu $a2, $s0      # exp / RADIX
     mflo $a2           # quotient
+
     jal radsort
 
+    lw $t0, 52($sp)
+    lw $t1, 48($sp)
+    lw $t2, 44($sp)
+    lw $t3, 40($sp)
+    lw $t4, 36($sp)
+    lw $t5, 32($sp)
+    lw $t6, 28($sp)
+    sw $t7, 24($sp)
+    lw $t8, 20($sp)
+    lw $t9, 16($sp)
     lw $ra, 12($sp)
     lw $a0, 0($sp)     # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addiu $sp, $sp, 24
+    addiu $sp, $sp, 64
 
 radsort_copy_array:
     # save my previous function parameters on stack
-    addiu $sp, $sp, -24
+    addiu $sp, $sp, -64
+
+    sw $t0, 52($sp)
+    sw $t1, 48($sp)
+    sw $t2, 44($sp)
+    sw $t3, 40($sp)
+    sw $t4, 36($sp)
+    sw $t5, 32($sp)
+    sw $t6, 28($sp)
+    sw $t7, 24($sp)
+    sw $t8, 20($sp)
+    sw $t9, 16($sp)
     sw $ra, 12($sp)
     sw $a2, 8($sp)
     sw $a1, 4($sp)
@@ -327,11 +364,21 @@ radsort_copy_array:
 
     jal arrcpy
 
+    lw $t0, 52($sp)
+    lw $t1, 48($sp)
+    lw $t2, 44($sp)
+    lw $t3, 40($sp)
+    lw $t4, 36($sp)
+    lw $t5, 32($sp)
+    lw $t6, 28($sp)
+    sw $t7, 24($sp)
+    lw $t8, 20($sp)
+    lw $t9, 16($sp)
     lw $ra, 12($sp)
-    lw $a0, 0($sp)      # restore my previous function parameters
+    lw $a0, 0($sp)     # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addiu $sp, $sp, 24
+    addiu $sp, $sp, 64
 
     # idx += children_len[i];
     addu $s4, $s4, $a2   # idx += children_len[i]
@@ -347,16 +394,19 @@ radsort_recursive_loop_cond:
 # Case when n < 2 || exp == 0:
 radsort_exit1:
     # restore registers
-    lw $a2, 32($sp)
-    lw $a1, 28($sp)
-    lw $a0, 24($sp)
-    lw $ra, 20($sp)
     lw $s4, 16($sp)
     lw $s3, 12($sp)
     lw $s2, 8($sp)
     lw $s1, 4($sp)
     lw $s0, 0($sp)
-    addi $sp, $sp, 40
+    addi $sp, $sp, 24
+
+    li      $v0, 1              # print_integer
+    move $a0, $s2
+    syscall
+
+blah:
+    beq $zero, $zero, blah
     jr  $ra
 
 find_exp:
