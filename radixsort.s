@@ -154,8 +154,8 @@ radsort:
     # temporary storage (mallocs in the C implementation)
 
     # Saving registers as the callee
-    addi $sp, $sp, -32
-    sw $a2, 20($sp)
+    addi $sp, $sp, -36
+    sw $a2, 32($sp)
     sw $a1, 28($sp)
     sw $a0, 24($sp)
     sw $ra, 20($sp)
@@ -187,6 +187,8 @@ radsort:
     li $v0, 9             # Syscall for sbrk
     syscall               # Allocate memory
     move $s2, $v0         # Address of children_len array 
+
+    lw $a0, 24($sp)
 
     # For loop to initialize bucket counts to zero
     move $t0, $zero       # i = 0;
@@ -231,6 +233,7 @@ radsort_assign_buckets_loop:
     syscall               # Allocate memory
     addu $t6, $s1, $t3     # address of children[sort_index]
     sw $v0, 0($t6)        # children[sort_index] = malloc(4 * n)
+    lw $a0, 24($sp)
 
 radsort_assign_buckets:
     # children[sort_index][children_len[sort_index]] = array[i];
@@ -312,21 +315,20 @@ radsort_recursive_loop_cond:
 
     #Keep going (line 88 in .c) TODO
 
-
 # Case when n < 2 || exp == 0:
 radsort_exit1:
     # restore registers
-    lw $a0, 0($sp)
-    lw $a1, 4($sp)
-    lw $a2, 8($sp)
-    lw $ra, 12($sp)
-    addi $sp, $sp, 32
+    lw $a2, 32($sp)
+    lw $a1, 28($sp)
+    lw $a0, 24($sp)
+    lw $ra, 20($sp)
+    lw $s4, 16($sp)
+    lw $s3, 12($sp)
+    lw $s2, 8($sp)
+    lw $s1, 4($sp)
+    lw $s0, 0($sp)
+    addi $sp, $sp, 36
     jr $ra
-
-L1:
-    jr      $ra
-
-
 
 find_exp:
     # leaf procedure
@@ -386,4 +388,4 @@ arrcpy_fl_test1:
     bne $t5, $zero, arrcpy_fl_loop 
 
 arrcpy_exit:
-    jr      $ra
+    jr $ra
