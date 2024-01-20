@@ -244,6 +244,7 @@ radsort_assign_buckets_loop:
     sll $t1, $t0, 2    # 4 x i
     addu $t1, $s5, $t1  # address of array[i]
     lw $t2, 0($t1)     # array[i]
+    lw $s7, 0($t1)     # array[i] again
     divu $t2, $a2      # array[i] / exp
     mflo $t2           # quotient
     divu $t2, $s0      # quotient % RADIX
@@ -268,7 +269,7 @@ radsort_assign_buckets:
     sll $t7, $t5, 2    # 4 x children_len[sort_index]
     lw $t8, 0($t6)     # children[sort_index]
     addu $t8, $t8, $t7  # address of children[sort_index][children_len[sort_index]]
-    sw $t2, 0($t8)     # children[sort_index][children_len[sort_index]] = array[i]
+    sw $s7, 0($t8)     # children[sort_index][children_len[sort_index]] = array[i]
 
     # increment children_len[sort_index]
     addiu $t5, $t5, 1
@@ -287,9 +288,6 @@ radsort_assign_buckets_loop_cond:
 
 radsort_recursive_loop:
     # save my previous function parameters on stack
-
-# loop:
-#    beq $zero, $zero, loop
 
     # if (children_len[i] != 0)
     sll $t0, $s3, 2    # 4 x i
