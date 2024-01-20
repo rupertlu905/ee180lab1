@@ -123,7 +123,7 @@ read_loop_cond:
     lw $t1, 16($sp)
     addi $sp, $sp, 24
 
-    addiu $sp, $sp, -24
+    addi $sp, $sp, -24
     sw $ra, 0($sp)
     sw $a1, 4($sp)
     sw $a0, 8($sp)
@@ -143,7 +143,7 @@ read_loop_cond:
     lw $a0, 8($sp)
     lw $t0, 12($sp)
     lw $t1, 16($sp)
-    addiu $sp, $sp, 24
+    addi $sp, $sp, 24
 
 print_array:
     #---- Print sorted array -----------------------------------
@@ -315,7 +315,7 @@ radsort_recursive_loop:
     sll $t0, $s3, 2    # 4 x i
     addu $t0, $s1, $t0  # address of children[i]
     lw $a0, 0($t0)     # children[i]
-    lw $a1, 0($t0)
+    move $a1, $s6
     divu $a2, $s0      # exp / RADIX
     mflo $a2           # quotient
 
@@ -335,7 +335,7 @@ radsort_recursive_loop:
     lw $a0, 0($sp)     # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addiu $sp, $sp, 64
+    addi $sp, $sp, 64
 
 radsort_copy_array:
     # save my previous function parameters on stack
@@ -381,10 +381,10 @@ radsort_copy_array:
     lw $a0, 0($sp)     # restore my previous function parameters
     lw $a1, 4($sp)
     lw $a2, 8($sp)
-    addiu $sp, $sp, 64
+    addi $sp, $sp, 64
 
     # idx += children_len[i];
-    addu $s4, $s4, $a2   # idx += children_len[i]
+    addu $s4, $s4, $s6   # idx += children_len[i]
 
     # increment i
     addiu $s3, $s3, 1
