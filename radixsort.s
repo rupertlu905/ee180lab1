@@ -219,7 +219,6 @@ radsort:
     syscall               # Allocate memory
     move $s2, $v0         # Address of children_len array 
 
-
     # For loop to initialize bucket counts to zero
     move $t0, $zero       # i = 0;
     j radsort_init_loop_cond
@@ -432,8 +431,8 @@ exp_for1_test:
 
 exp_exit1:
     li $v0, 1                    # exp = 1
-    j exp_whi_test
     li $t1, 10                   # RADIX = 10
+    j exp_whi_test
 
 exp_while_loop:    
     divu $t0, $t1         # largest = largest / RADIX
