@@ -14,3 +14,4 @@ then
 fi
 
 diff <(./radixsort < $1 | tail -n 1) <(spim -file radixsort.s < $1 | tail -n 1)
+
